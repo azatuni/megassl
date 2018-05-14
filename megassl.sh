@@ -44,8 +44,8 @@ function pemgen () {
         COMMONNAME=`echo "$CON" | sed s/'*.'//`
 	PEMFILENAME="$COMMONNAME"."pem"
 	openssl rsa -in $PWD"/"$1 -text > "$PEMFILENAME"
-        openssl x509 -in $PWD"/"$2  -out $COMMONNAME"."pem.crt -outform PEM && rm -f $COMMONNAME"."pem.crt
-        cat $COMMONNAME"."pem.crt >> "$PEMFILENAME"
+        openssl x509 -in $PWD"/"$2  -out $COMMONNAME"."pem.crt -outform PEM
+        cat $COMMONNAME"."pem.crt >> "$PEMFILENAME" && rm -f $COMMONNAME"."pem.crt
         test -f $PWD"/"$3 && cat $PWD"/"$3 >> "$PEMFILENAME"
         test -f $PWD"/"$4 && cat $PWD"/"$4 >> "$PEMFILENAME"
         test -f $PWD"/"$5 && cat $PWD"/"$5 >> "$PEMFILENAME"

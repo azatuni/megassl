@@ -1,6 +1,6 @@
 #!/bin/bash
-#Megassl v1.0
-#Date: 10.05.2018
+#Megassl v1.1
+#Date: 23.05.2018
 #Author: https://github.com/azatuni/
 #Purpose: Bash script for manipulating with ssl certificates and private keys. 
 
@@ -74,6 +74,9 @@ CSRKEYDIR="$PWD"/"$1"
         fi
 }
 
+function decode_csr () {
+openssl req -in $1 -noout -text
+}
 
 function megassl_usage () 
 {
@@ -89,13 +92,19 @@ KEYS:${NORMAL}
 \t\t\tCheck SSL certificate on remote server
 \t${BOLD}--csrkeygen FQDN${NORMAL}
 \t\t\tCreate folder with FQDN name and generate CSR and certificate inside of it
+\t${BOLD}--decodecsr csr_file${NORMAL}
+\t\t\tDecodes existing CSR file
 "
 }
-
 
 colour_variables
 megassl_banner
 
+if [ "$1" != "--help" ]
+	then	if [ $# -lt 2 ]
+			then echo -e "${RED}${BOLD}Need mininum one key and argument, for more info run: $0 --help${NORMAL}" && exit 2 
+	fi
+fi
 
 case "$1" in
         "--checkcertkey")
@@ -113,6 +122,9 @@ case "$1" in
         "--csrkeygen")
                 csrkeygen $2
                 ;;
+	"--decodecsr")
+		decode_csr $2
+		;;
         *)
                 megassl_usage && exit
                 ;;

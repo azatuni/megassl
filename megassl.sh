@@ -1,10 +1,10 @@
 #!/bin/bash
-#Megassl v1.1
-#Date: 23.05.2018
-#Author: https://github.com/azatuni/
-#Purpose: Bash script for manipulating with ssl certificates and private keys. 
+# Megassl v1.1.1
+# Date: 2020.12.09
+# Author: https://github.com/azatuni/
+# Purpose: Bash script for manipulating with ssl certificates and private keys. 
 
-function colour_variables () {
+function colour-variables () {
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 RED='\e[1;31m'
@@ -15,31 +15,18 @@ CYAN='\e[1;96m'
 BLINK='\e[1;5m'
 DARKGREY='\e[1;90m'
 DIM='\e[1;2m'
+OK_STATUS="\t${GREEN}${BOLD}[ OK ]${NORMAL}"
+FAILED_STATUS="\t${RED}${BOLD}[ FAILED ]${NORMAL}"
 }
 
-function megassl_banner () {
-echo -e "${BOLD}${CYAN}
-\t                                         __
-\t   ____ ___  ___  ____ _____ ___________/ /
-\t  / __ \`__ \/ _ \/ __ \`/ __ \`/ ___/ ___/ / 
-\t / / / / / /  __/ /_/ / /_/ (__  (__  / /  
-\t/_/ /_/ /_/\___/\__, /\__,_/____/____/_/   
-\t               /____/                      
-${BLUE}_____________________________________________________________
-\t\t${NORMAL}${DARKGREY}${DIM}https://github.com/azatuni/
-${BLUE}=============================================================${NORMAL}
-"
-}
-
-
-function check_cert_key () {
+function check-cert-key () {
 if [ "`openssl rsa -noout -modulus -in $PWD'/'$1 | openssl md5`" ==  "`openssl x509 -noout -modulus -in $PWD'/'$2 | openssl md5`" ]
-	then	echo -e "$1 and $2 match status:\t${GREEN}${BOLD}[ OK ]${NORMAL}"
-	else	echo -e "$1 and $2 match status:\t${RED}${BOLD}[ FAILED ]${NORMAL}" && exit 1
+	then	echo -e "$1 and $2 match status:$OK_STATUS"
+	else	echo -e "$1 and $2 match status:$FAILED_STATUS" && exit 1
 fi
 }
 
-function pemgen () {
+function pem-gen () {
         CON=`openssl x509 -noout -subject -in $PWD'/'$2 | grep -o CN=.*| sed s/CN=//`
         COMMONNAME=`echo "$CON" | sed s/'*.'//`
 	PEMFILENAME="$COMMONNAME"."pem"
@@ -53,20 +40,20 @@ function pemgen () {
         echo -e "Generated PEM file:\t${BOLD}$COMMONNAME"."pem${NORMAL}"
 }
 
-function checkcertfiledate () {
+function check-cert-file-date () {
 echo -e "$1 is valid till:\t`openssl x509 -enddate -noout -in $PWD"/"$1 | awk -F= '{print $2}'`"
 }
 
-function checkservercertdate () {
+function check-server-cert-date () {
 echo -e "$1 is valid till:\t`echo | openssl s_client -connect $1:443 2> /dev/null| openssl x509 -noout -dates| tail -n1`"
 }
 
 
-function csrkeygen () {
+function csr-key-gen () {
 CSRKEYDIR="$PWD"/"$1"
         if [ -d $CSRKEYDIR ]
-		then	echo -e "Creating $CSRKEYDIR directory:\t\t${RED}${BOLD}[ FAILED ]${NORMAL}" && echo -e "${RED}${BOLD}ERROR! Directory exists!${NORMAL}" && exit 1
-                else    mkdir $CSRKEYDIR && cd $CSRKEYDIR && echo -e "Creating $CSRKEYDIR directory:\t\t${GREEN}${BOLD}[ OK ]${NORMAL}"
+		then	echo -e "Creating $CSRKEYDIR directory:$FAILED_STATUS" && echo -e "${RED}${BOLD}ERROR! Directory exists!${NORMAL}" && exit 1
+                else    mkdir $CSRKEYDIR && cd $CSRKEYDIR && echo -e "Creating $CSRKEYDIR directory:$OK_STATUS"
                         openssl genrsa -out $1.key 2048
                         openssl req -new -sha256 -key $1.key -out $1.csr
 			echo -e "Certificate Signing Request(CSR) file is:\t\t${GREEN}${BOLD}$CSRKEYDIR/$1.csr${NORMAL}"
@@ -74,31 +61,51 @@ CSRKEYDIR="$PWD"/"$1"
         fi
 }
 
-function decode_csr () {
+function decode-csr () {
 openssl req -in $1 -noout -text
 }
 
-function megassl_usage () 
+function extract-from-pfx () {
+openssl pkcs12 -in $PFX_FILE -nocerts -out pfx-extract-tmp.key
+openssl pkcs12 -in $PFX_FILE -clcerts -nokeys -out pfx-extract-tmp.crt
+COMMON_NAME=`openssl x509 -noout -subject -in pfx-extract-tmp.crt | cut -d'/' -f6| sed 's/CN=//'` && echo -e "$PFX_FILE file common name: $COMMON_NAME"
+mv pfx-extract-tmp.crt $COMMON_NAME.crt && echo -e "Extracted $COMMON_NAME.crt certificate from $PFX_FILE$OK_STATUS"
+openssl rsa -in pfx-extract-tmp.key -out $COMMON_NAME.key && echo -e "Extracted $COMMON_NAME.key private key from $PFX_FILE$OK_STATUS"
+rm -f pfx-extract-tmp.key
+}
+
+function megassl-usage () 
 {
-echo -e "${BOLD}Usage:${NORMAL} $0 --key argument|arguments
+echo -e "${BOLD}${CYAN}
+\t                                         __
+\t   ____ ___  ___  ____ _____ ___________/ /
+\t  / __ \`__ \/ _ \/ __ \`/ __ \`/ ___/ ___/ /
+\t / / / / / /  __/ /_/ / /_/ (__  (__  / /
+\t/_/ /_/ /_/\___/\__, /\__,_/____/____/_/
+\t               /____/
+${BLUE}_____________________________________________________________
+\t\t${NORMAL}${DARKGREY}${DIM}https://github.com/azatuni/
+${BLUE}=============================================================${NORMAL}
+${BOLD}Usage:${NORMAL} $0 --key argument|arguments
 KEYS:${NORMAL}
-\t${BOLD}--checkcertkey\tprivate_key_file ssl_certificate_file${NORMAL}
-\t\t\tCheck SSL certificate and private key matching
-\t${BOLD}--pemgen private_key_file ssl_certificate_file [intermediary_certificate_file|files(until 5)]${NORMAL}
-\t\t\tGenerate pem file
-\t${BOLD}--checkcertfiledate ssl_certificate_file${NORMAL}
-\t\t\tCheck SSL certificate experation date
-\t${BOLD}--checkservercertdate domain|subdomain${NORMAL}
-\t\t\tCheck SSL certificate on remote server
-\t${BOLD}--csrkeygen FQDN${NORMAL}
-\t\t\tCreate folder with FQDN name and generate CSR and certificate inside of it
-\t${BOLD}--decodecsr csr_file${NORMAL}
-\t\t\tDecodes existing CSR file
+    ${BOLD}--check-cert-key private_key_file ssl_certificate_file${NORMAL}
+\tCheck SSL certificate and private key matching
+    ${BOLD}--pem-gen private_key_file ssl_certificate_file [intermediary_certificate_file|files(until 5)]${NORMAL}
+\tGenerate pem file
+    ${BOLD}--check-cert-file-date ssl_certificate_file${NORMAL}
+\tCheck SSL certificate experation date
+    ${BOLD}--check-server-cert-date domain|subdomain${NORMAL}
+\tCheck SSL certificate on remote server
+    ${BOLD}--csr-key-gen FQDN${NORMAL}
+\tCreate folder with FQDN name and generate CSR and certificate inside of it
+    ${BOLD}--decode-csr csr_file${NORMAL}
+\tDecodes existing CSR file
+    ${BOLD}--extract-pfx pfx_file${NORMAL}
+\tExtrcat certificate and private key from pfx file
 "
 }
 
-colour_variables
-megassl_banner
+colour-variables
 
 if [ "$1" != "--help" ]
 	then	if [ $# -lt 2 ]
@@ -107,26 +114,30 @@ if [ "$1" != "--help" ]
 fi
 
 case "$1" in
-        "--checkcertkey")
-                check_cert_key $2 $3
+        "--check-cert-key")
+                check-cert-key $2 $3
                 ;;
-        "--checkcertfiledate")
-                checkcertfiledate $2
+        "--check-cert-file-date")
+                check-cert-file-date $2
                 ;;
-	"--checkservercertdate")
-		checkservercertdate $2
+	"--check-server-cert-date")
+		check-server-cert-date $2
 		;;
-        "--pemgen")
-                check_cert_key $2 $3 && checkcertfiledate $3 && pemgen $2 $3 $4 $5 $6
+        "--pem-gen")
+                check-cert-key $2 $3 && check-cert-file-date $3 && pem-gen $2 $3 $4 $5 $6
                 ;;
-        "--csrkeygen")
-                csrkeygen $2
+        "--csr-key-gen")
+                csr-key-gen $2
                 ;;
-	"--decodecsr")
-		decode_csr $2
+	"--decode-csr")
+		decode-csr $2
+		;;
+	"--extract-pfx")
+		PFX_FILE=$2
+		extract-from-pfx
 		;;
         *)
-                megassl_usage && exit
+                megassl-usage && exit
                 ;;
 esac
 
